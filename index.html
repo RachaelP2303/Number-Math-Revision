@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NZ Curriculum Phase 3 - Number Strand Assessment</title>
+  <style>
+    :root {
+      --primary: #0066cc;
+      --secondary: #004080;
+      --bg: #f4f7f9;
+      --card-bg: #ffffff;
+      --text: #333333;
+      --border: #cccccc;
+      --correct: #28a745;
+      --incorrect: #dc3545;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 750px;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    h1, h2, h3 {
+      color: var(--secondary);
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn:hover {
+      background-color: var(--secondary);
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .option-btn {
+      background: white;
+      border: 2px solid var(--border);
+      padding: 14px;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .option-btn:hover {
+      border-color: var(--primary);
+      background-color: #f0f7ff;
+    }
+
+    .option-btn.selected {
+      border-color: var(--primary);
+      background-color: #e0f0ff;
+      font-weight: bold;
+    }
+
+    .svg-illustration {
+      display: block;
+      margin: 20px auto;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background-color: #e0e0e0;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .teacher-panel {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 2px dashed var(--border);
+    }
+
+    .feedback-box {
+      background-color: #f8f9fa;
+      border-left: 4px solid var(--primary);
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 4px;
+    }
+
+    .curriculum-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      color: white;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .stage-working-towards { background-color: #ff9800; }
+    .stage-at { background-color: #28a745; }
+    .stage-beyond { background-color: #007bff; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- PAGE 0: STUDENT DETAILS -->
+  <div id="page-0" class="page active">
+    <h1>NZ Curriculum Phase 3: Number Assessment</h1>
+    <p>Please enter your name and year level to begin your test.</p>
+    <div class="input-group">
+      <label for="studentName">Full Name:</label>
+      <input type="text" id="studentName" placeholder="e.g., Ana Hera">
+    </div>
+    <div class="input-group">
+      <label for="yearLevel">Year Level:</label>
+      <input type="text" id="yearLevel" placeholder="e.g., Year 7 or Year 8">
+    </div>
+    <button class="btn" onclick="startTest()">Start Test</button>
+  </div>
+
+  <!-- CONTAINER FOR TEST QUESTIONS (PAGES 1 to 15) -->
+  <div id="test-container"></div>
+
+  <!-- PAGE 16: RESULTS & FEEDBACK -->
+  <div id="page-16" class="page">
+    <h2>Test Complete!</h2>
+    <div id="curriculumBadge" class="curriculum-badge"></div>
+    <p id="studentScoreText"></p>
+    
+    <div class="feedback-box">
+      <h3>Areas for Improvement & Feedback</h3>
+      <ul id="feedbackList"></ul>
+    </div>
+
+    <!-- TEACHER ACCESS SECTION -->
+    <div class="teacher-panel">
+      <h3>Teacher Portal</h3>
+      <p>Enter Teacher PIN to download CSV results directly:</p>
+      <div style="display: flex; gap: 10px; max-width: 300px;">
+        <input type="password" id="teacherPin" placeholder="Enter PIN" style="padding: 10px;">
+        <button class="btn" onclick="verifyPinAndExport()">Export CSV</button>
+      </div>
+      <p id="pinError" style="color: red; display: none; margin-top: 5px;">Incorrect PIN.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // YOUR LIVE GOOGLE APPS SCRIPT WEB APP URL
+  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwNK0I85iVsjPYiQgLwA67XIt2OeBW_O8UfmhooJNkdlDVQHVafHMuCHJ221zGFOjab/exec";
+
+  let studentData = {
+    name: "",
+    year: "",
+    answers: {},
+    score: 0,
+    percentage: 0,
+    stage: "",
+    improvements: []
+  };
+
+  const questions = [
+    {
+      id: 1,
+      question: "Which of the following correctly represents 34,506 written in expanded form using powers of 10?",
+      svg: `<svg class="svg-illustration" width="300" height="80" viewBox="0 0 300 80">
+              <rect x="10" y="10" width="280" height="60" rx="8" fill="#e0f0ff" stroke="#0066cc" stroke-width="2"/>
+              <text x="150" y="48" font-size="24" font-weight="bold" fill="#004080" text-anchor="middle">34,506</text>
+            </svg>`,
+      options: [
+        { label: "A", text: "3 × 10⁴ + 4 × 10³ + 5 × 10² + 6", correct: true },
+        { label: "B", text: "3 × 10⁵ + 4 × 10⁴ + 5 × 10³ + 6 × 10¹", correct: false },
+        { label: "C", text: "34 × 10³ + 50 × 10¹ + 6", correct: false },
+        { label: "D", text: "3 × 10⁴ + 4 × 10³ + 5 × 10¹ + 6 × 10⁰", correct: false }
+      ],
+      topic: "Expanded form with powers of 10"
+    },
+    {
+      id: 2,
+      question: "What is the fraction and power of 10 equivalent for the decimal 0.01?",
+      svg: `<svg class="svg-illustration" width="300" height="80" viewBox="0 0 300 80">
+              <rect x="10" y="10" width="280" height="60" rx="8" fill="#f9f9f9" stroke="#ccc" stroke-width="2"/>
+              <text x="150" y="48" font-size="22" font-weight="bold" fill="#333" text-anchor="middle">0.01 = ?</text>
+            </svg>`,
+      options: [
+        { label: "A", text: "1/10 and 10⁻¹", correct: false },
+        { label: "B", text: "1/100 and 10⁻²", correct: true },
+        { label: "C", text: "1/1000 and 10⁻³", correct: false },
+        { label: "D", text: "1/100 and 10²", correct: false }
+      ],
+      topic: "Negative powers of 10 and decimals"
+    },
+    {
+      id: 3,
+      question: "Which list contains ONLY prime numbers under 20?",
+      svg: null,
+      options: [
+        { label: "A", text: "1, 2, 3, 5, 7, 11, 13, 17, 19", correct: false },
+        { label: "B", text: "2, 3, 5, 7, 9, 11, 13, 17, 19", correct: false },
+        { label: "C", text: "2, 3, 5, 7, 11, 13, 17, 19", correct: true },
+        { label: "D", text: "3, 5, 7, 11, 13, 15, 17, 19", correct: false }
+      ],
+      topic: "Identifying prime numbers"
+    },
+    {
+      id: 4,
+      question: "What is the Highest Common Factor (HCF) of 24 and 36?",
+      svg: null,
+      options: [
+        { label: "A", text: "6", correct: false },
+        { label: "B", text: "72", correct: false },
+        { label: "C", text: "12", correct: true },
+        { label: "D", text: "4", correct: false }
+      ],
+      topic: "Highest Common Factor (HCF)"
+    },
+    {
+      id: 5,
+      question: "Evaluate: √144 + ∛125",
+      svg: null,
+      options: [
+        { label: "A", text: "17", correct: true },
+        { label: "B", text: "19", correct: false },
+        { label: "C", text: "15", correct: false },
+        { label: "D", text: "22", correct: false }
+      ],
+      topic: "Square roots and cube roots"
+    },
+    {
+      id: 6,
+      question: "Express 36 as a product of its prime factors in exponent notation.",
+      svg: null,
+      options: [
+        { label: "A", text: "2 × 3³", correct: false },
+        { label: "B", text: "2² × 3²", correct: true },
+        { label: "C", text: "4 × 9", correct: false },
+        { label: "D", text: "2³ × 3", correct: false }
+      ],
+      topic: "Prime factorisation with exponents"
+    },
+    {
+      id: 7,
+      question: "Look at the number line below. What is the value at point A?",
+      svg: `<svg class="svg-illustration" width="350" height="80" viewBox="0 0 350 80">
+              <line x1="20" y1="40" x2="330" y2="40" stroke="#333" stroke-width="3"/>
+              <polygon points="330,35 340,40 330,45" fill="#333"/>
+              <polygon points="20,35 10,40 20,45" fill="#333"/>
+              <line x1="50" y1="30" x2="50" y2="50" stroke="#333" stroke-width="2"/>
+              <line x1="120" y1="30" x2="120" y2="50" stroke="#333" stroke-width="2"/>
+              <line x1="190" y1="30" x2="190" y2="50" stroke="#333" stroke-width="2"/>
+              <line x1="260" y1="30" x2="260" y2="50" stroke="#333" stroke-width="2"/>
+              <text x="50" y="70" font-size="16" text-anchor="middle">-5</text>
+              <text x="120" y="70" font-size="16" text-anchor="middle" font-weight="bold" fill="#0066cc">A</text>
+              <text x="190" y="70" font-size="16" text-anchor="middle">3</text>
+              <text x="260" y="70" font-size="16" text-anchor="middle">7</text>
+            </svg>`,
+      options: [
+        { label: "A", text: "-2", correct: false },
+        { label: "B", text: "-1", correct: true },
+        { label: "C", text: "0", correct: false },
+        { label: "D", text: "1", correct: false }
+      ],
+      topic: "Integer number lines"
+    },
+    {
+      id: 8,
+      question: "What is the additive inverse of -8, and what is their sum?",
+      svg: null,
+      options: [
+        { label: "A", text: "Additive inverse is 8; sum is 0", correct: true },
+        { label: "B", text: "Additive inverse is -8; sum is -16", correct: false },
+        { label: "C", text: "Additive inverse is 1/8; sum is 1", correct: false },
+        { label: "D", text: "Additive inverse is 8; sum is 16", correct: false }
+      ],
+      topic: "Additive inverses"
+    },
+    {
+      id: 9,
+      question: "Evaluate the following integer expression: 4 + -9 - (-3)",
+      svg: null,
+      options: [
+        { label: "A", text: "-8", correct: false },
+        { label: "B", text: "-2", correct: true },
+        { label: "C", text: "-10", correct: false },
+        { label: "D", text: "2", correct: false }
+      ],
+      topic: "Operations with integers"
+    },
+    {
+      id: 10,
+      question: "Solve using the order of operations (GEMA): 5 + 3 × (2³ - 4)",
+      svg: null,
+      options: [
+        { label: "A", text: "32", correct: false },
+        { label: "B", text: "17", correct: true },
+        { label: "C", text: "29", correct: false },
+        { label: "D", text: "23", correct: false }
+      ],
+      topic: "Order of operations (GEMA)"
+    },
+    {
+      id: 11,
+      question: "Calculate: 3/4 + 2/5. Express your answer in simplest form.",
+      svg: null,
+      options: [
+        { label: "A", text: "5/9", correct: false },
+        { label: "B", text: "1 3/20", correct: true },
+        { label: "C", text: "23/20", correct: false },
+        { label: "D", text: "1 1/5", correct: false }
+      ],
+      topic: "Adding fractions with unlike denominators"
+    },
+    {
+      id: 12,
+      question: "Calculate: 2/3 × 5/8 in simplest form.",
+      svg: null,
+      options: [
+        { label: "A", text: "10/24", correct: false },
+        { label: "B", text: "5/12", correct: true },
+        { label: "C", text: "7/11", correct: false },
+        { label: "D", text: "15/16", correct: false }
+      ],
+      topic: "Multiplying fractions"
+    },
+    {
+      id: 13,
+      question: "If 3/5 of a class set of books is 18 books, how many books are in the whole set?",
+      svg: null,
+      options: [
+        { label: "A", text: "30 books", correct: true },
+        { label: "B", text: "25 books", correct: false },
+        { label: "C", text: "36 books", correct: false },
+        { label: "D", text: "54 books", correct: false }
+      ],
+      topic: "Finding the whole amount given a fraction"
+    },
+    {
+      id: 14,
+      question: "A store offers a 20% discount on a jacket priced at $85. What is the final discounted price?",
+      svg: `<svg class="svg-illustration" width="200" height="100" viewBox="0 0 200 100">
+              <rect x="20" y="10" width="160" height="80" rx="10" fill="#fff3cd" stroke="#ffebaba" stroke-width="2"/>
+              <text x="100" y="45" font-size="18" font-weight="bold" fill="#856404" text-anchor="middle">SALE: 20% OFF</text>
+              <text x="100" y="70" font-size="16" fill="#856404" text-anchor="middle">Original: $85</text>
+            </svg>`,
+      options: [
+        { label: "A", text: "$17.00", correct: false },
+        { label: "B", text: "$68.00", correct: true },
+        { label: "C", text: "$65.00", correct: false },
+        { label: "D", text: "$70.00", correct: false }
+      ],
+      topic: "Financial maths: Percentage discounts"
+    },
+    {
+      id: 15,
+      question: "A juice recipe uses apple juice and orange juice in a ratio of 2:3. If you use 12 litres of orange juice, how many litres of apple juice are needed?",
+      svg: null,
+      options: [
+        { label: "A", text: "8 litres", correct: true },
+        { label: "B", text: "18 litres", correct: false },
+        { label: "C", text: "6 litres", correct: false },
+        { label: "D", text: "10 litres", correct: false }
+      ],
+      topic: "Proportional reasoning and ratios"
+    }
+  ];
+
+  function buildTestPages() {
+    const container = document.getElementById("test-container");
+    questions.forEach((q, index) => {
+      const pageNum = index + 1;
+      const totalPages = questions.length;
+      
+      let html = `
+        <div id="page-${pageNum}" class="page">
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${(pageNum / totalPages) * 100}%"></div>
+          </div>
