@@ -431,6 +431,7 @@
 
   function buildTestPages() {
     const container = document.getElementById("test-container");
+    container.innerHTML = "";
     questions.forEach((q, index) => {
       const pageNum = index + 1;
       const totalPages = questions.length;
@@ -440,3 +441,182 @@
           <div class="progress-bar">
             <div class="progress-fill" style="width: ${(pageNum / totalPages) * 100}%"></div>
           </div>
+          <small>Question ${pageNum} of ${totalPages}</small>
+          <h2>${q.question}</h2>
+          ${q.svg ? q.svg : ''}
+          <div class="options-grid">
+      `;
+
+      q.options.forEach(opt => {
+        html += `
+          <button class="option-btn" onclick="selectOption(${pageNum}, '${opt.label}', ${opt.correct}, this)">
+            <strong>${opt.label}.</strong> ${opt.text}
+          </button>
+        `;
+      });
+
+      html += `
+          </div>
+          <div style="margin-top: 25px; display: flex; justify-content: space-between;">
+            ${pageNum > 1 ? `<button class="btn" onclick="navigatePage(${pageNum - 1})">Previous</button>` : '<div></div>'}
+            ${pageNum < totalPages ? `<button class="btn" onclick="navigatePage(${pageNum + 1})">Next</button>` : `<button class="btn" onclick="submitTest()">Submit Test</button>`}
+          </div>
+        </div>
+      `;
+      container.innerHTML += html;
+    });
+  }
+
+  function startTest() {
+    const nameInput = document.getElementById("studentName");
+    const yearInput = document.getElementById("yearLevel");
+    
+    const name = nameInput ? nameInput.value.trim() : "";
+    const year = yearInput ? yearInput.value.trim() : "";
+
+    if (!name || !year) {
+      alert("Please enter your name and year level.");
+      return;
+    }
+
+    studentData.name = name;
+    studentData.year = year;
+    navigatePage(1);
+  }
+
+  function navigatePage(pageNum) {
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    const targetPage = document.getElementById(`page-${pageNum}`);
+    if (targetPage) {
+      targetPage.classList.add("active");
+    }
+  }
+
+  function selectOption(qNum, label, isCorrect, btnElement) {
+    const parent = btnElement.parentElement;
+    parent.querySelectorAll(".option-btn").forEach(b => b.classList.remove("selected"));
+    btnElement.classList.add("selected");
+
+    studentData.answers[qNum] = {
+      label: label,
+      isCorrect: isCorrect,
+      topic: questions[qNum - 1].topic
+    };
+  }
+
+  function submitTest() {
+    if (Object.keys(studentData.answers).length < questions.length) {
+      if (!confirm("You have unanswered questions. Are you sure you want to submit?")) {
+        return;
+      }
+    }
+
+    let score = 0;
+    let improvements = [];
+
+    questions.forEach(q => {
+      const ans = studentData.answers[q.id];
+      if (ans && ans.isCorrect) {
+        score++;
+      } else {
+        improvements.push(q.topic);
+      }
+    });
+
+    studentData.score = score;
+    studentData.percentage = Math.round((score / questions.length) * 100);
+    studentData.improvements = [...new Set(improvements)];
+
+    if (studentData.percentage < 50) {
+      studentData.stage = "Working Towards Phase 3";
+    } else if (studentData.percentage <= 80) {
+      studentData.stage = "At Phase 3 (Proficient)";
+    } else {
+      studentData.stage = "Beyond Phase 3 (Advanced)";
+    }
+
+    displayResults();
+    sendDataToGoogleSheet();
+  }
+
+  function displayResults() {
+    navigatePage(16);
+    
+    const badge = document.getElementById("curriculumBadge");
+    badge.innerText = studentData.stage;
+    if (studentData.percentage < 50) badge.className = "curriculum-badge stage-working-towards";
+    else if (studentData.percentage <= 80) badge.className = "curriculum-badge stage-at";
+    else badge.className = "curriculum-badge stage-beyond";
+
+    document.getElementById("studentScoreText").innerHTML = `
+      Great effort, <strong>${studentData.name}</strong> (${studentData.year})!<br>
+      You scored <strong>${studentData.score} / ${questions.length}</strong> (${studentData.percentage}%).
+    `;
+
+    const feedbackList = document.getElementById("feedbackList");
+    feedbackList.innerHTML = "";
+    if (studentData.improvements.length === 0) {
+      feedbackList.innerHTML = "<li>Outstanding performance! You showed strong understanding across all Phase 3 Number concepts.</li>";
+    } else {
+      studentData.improvements.forEach(topic => {
+        const li = document.createElement("li");
+        li.innerText = topic;
+        feedbackList.appendChild(li);
+      });
+    }
+  }
+
+  function sendDataToGoogleSheet() {
+    const payload = {
+      studentName: studentData.name,
+      yearLevel: studentData.year,
+      score: studentData.score + " / " + questions.length,
+      percentage: studentData.percentage,
+      curriculumStage: studentData.stage,
+      areasForImprovement: studentData.improvements.join("; ")
+    };
+
+    fetch(GOOGLE_SHEET_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).catch(err => console.error("Error sending data:", err));
+  }
+
+  function verifyPinAndExport() {
+    const pin = document.getElementById("teacherPin").value;
+    if (pin === "1335") {
+      document.getElementById("pinError").style.display = "none";
+      exportToCSV();
+    } else {
+      document.getElementById("pinError").style.display = "block";
+    }
+  }
+
+  function exportToCSV() {
+    const headers = ["Student Name", "Year Level", "Score", "Percentage", "Curriculum Stage", "Areas for Improvement"];
+    const row = [
+      `"${studentData.name}"`,
+      `"${studentData.year}"`,
+      `"${studentData.score}/${questions.length}"`,
+      `"${studentData.percentage}%"`,
+      `"${studentData.stage}"`,
+      `"${studentData.improvements.join('; ')}"`
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), row.join(",")].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `student_result_${studentData.name.replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  window.onload = buildTestPages;
+</script>
+
+</body>
+</html>
